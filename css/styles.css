@@ -107,12 +107,21 @@ html, body {
     cursor: pointer;
     transition: color 0.15s ease, transform 0.15s ease;
 }
-.tab-btn .icon {
-    font-size: 20px;
-    transition: transform 0.15s ease;
+.icon-img {
+    display: block;
+    width: 22px;
+    height: 22px;
+    background-color: var(--text-secondary);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    transition: transform 0.15s ease, background-color 0.15s ease;
 }
 .tab-btn.active { color: var(--accent); }
-.tab-btn.active .icon { transform: translateY(-1px) scale(1.08); }
+.tab-btn.active .icon-img { background: var(--gradient); transform: translateY(-1px) scale(1.08); }
 .tab-btn:active { transform: scale(0.94); }
 
 .card {
