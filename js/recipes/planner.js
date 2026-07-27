@@ -139,6 +139,7 @@ function openRecipeDetail(recipe) {
                 <h2>${recipe.name}</h2>
                 <button class="link-btn" data-action="close">Cerrar</button>
             </div>
+            ${recipe.photo ? `<img src="${recipe.photo}" alt="" style="width:100%; max-height:240px; object-fit:cover; border-radius:14px; display:block; margin-bottom:12px;" />` : ''}
             <div class="card">
                 <div class="list-item"><span>Calorías</span><strong>${recipe.calories} kcal</strong></div>
                 <div class="list-item"><span>Proteína</span><span>${recipe.protein} g</span></div>
@@ -224,8 +225,11 @@ function customRecipesSection(root) {
                 ? '<p class="hint">Crea tus propias recetas indicando los ingredientes: estimamos las calorías automáticamente y podrán aparecer en tu plan semanal.</p>'
                 : custom.map(r => `
                     <div class="list-item" data-recipe="${r.id}" style="cursor:pointer">
-                        <span>${r.mealType}: ${r.name}</span>
-                        <span style="display:flex; align-items:center; gap:10px;">
+                        <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+                            ${r.photo ? `<img src="${r.photo}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:9px; flex-shrink:0;" />` : ''}
+                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.mealType}: ${r.name}</span>
+                        </span>
+                        <span style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
                             <span class="meta" style="color:var(--text-secondary); font-size:12px">${r.calories} kcal</span>
                             <button class="link-btn" data-delete="${r.id}" style="color:var(--danger)">🗑️</button>
                         </span>
