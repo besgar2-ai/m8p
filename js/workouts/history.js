@@ -66,10 +66,17 @@ function openWorkoutDetail(workout) {
                     `).join('')}
                 </div>
             `).join('')}
+            <button class="btn danger block" data-action="delete" style="margin:10px 0 24px">🗑️ Eliminar entrenamiento</button>
         </div>
     `;
     backdrop.addEventListener('click', e => {
         if (e.target === backdrop || e.target.dataset.action === 'close') backdrop.remove();
+    });
+    backdrop.querySelector('[data-action="delete"]').addEventListener('click', () => {
+        if (!confirm('¿Eliminar este entrenamiento? No se puede deshacer.')) return;
+        Store.workouts = Store.workouts.filter(w => w.id !== workout.id);
+        backdrop.remove();
+        renderHistory(document.getElementById('app'));
     });
     document.body.appendChild(backdrop);
 }
