@@ -129,7 +129,12 @@ function openTemplateEditor(templateId, onClose) {
         `;
 
         backdrop.querySelector('#templateName').addEventListener('input', e => {
-            updateTemplate(t => { t.name = e.target.value; });
+            // Guarda directamente sin re-renderizar: si no, el input pierde el foco
+            // y en móvil se cierra el teclado en cada tecla.
+            const templates = Store.templates;
+            const t = templates.find(x => x.id === templateId);
+            t.name = e.target.value;
+            Store.templates = templates;
         });
         backdrop.querySelectorAll('[data-action="inc"]').forEach(btn => btn.addEventListener('click', () => {
             const idx = Number(btn.dataset.idx);

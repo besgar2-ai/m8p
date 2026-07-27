@@ -9,11 +9,31 @@ export function openRecipeForm(onSaved) {
     backdrop.className = 'modal-backdrop';
     document.body.appendChild(backdrop);
 
+    const state = { name: '', mealType: 'Comida', steps: '' };
     let rows = [{ qty: '', unit: 'g', name: '' }];
 
-    function render() {
+    function estimationHtml() {
         const totals = estimateRecipeTotals(rows.filter(r => r.name.trim()));
+        return `
+            <h3>Estimación</h3>
+            <div class="list-item"><span>Calorías</span><strong>${totals.calories} kcal</strong></div>
+            <div class="list-item"><span>Proteína</span><span>${totals.protein} g</span></div>
+            <div class="list-item"><span>Carbohidratos</span><span>${totals.carbs} g</span></div>
+            <div class="list-item"><span>Grasas</span><span>${totals.fat} g</span></div>
+            ${totals.unrecognized.length > 0 ? `
+                <p class="hint">No reconocido, no cuenta en la estimación: ${totals.unrecognized.join(', ')}. Prueba con el nombre exacto sugerido al escribir.</p>
+            ` : ''}
+        `;
+    }
 
+    function updateEstimate() {
+        backdrop.querySelector('#estimationCard').innerHTML = estimationHtml();
+    }
+
+    // Reconstruye todo el formulario. Solo debe llamarse tras acciones puntuales
+    // (añadir/quitar ingrediente), nunca en cada tecla: si no, el input pierde el
+    // foco y en móvil se cierra el teclado.
+    function renderShell() {
         backdrop.innerHTML = `
             <div class="modal-sheet">
                 <div class="modal-header">
@@ -23,12 +43,12 @@ export function openRecipeForm(onSaved) {
                 </div>
                 <div class="field">
                     <label>Nombre</label>
-                    <input type="text" id="recipeName" placeholder="ej. Bowl de pollo y quinoa" />
+                    <input type="text" id="recipeName" placeholder="ej. Bowl de pollo y quinoa" value="${state.name}" />
                 </div>
                 <div class="field">
                     <label>Tipo de comida</label>
                     <select id="mealType">
-                        ${MEAL_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                        ${MEAL_TYPES.map(t => `<option value="${t}" ${state.mealType === t ? 'selected' : ''}>${t}</option>`).join('')}
                     </select>
                 </div>
 
@@ -50,63 +70,45 @@ export function openRecipeForm(onSaved) {
                     ${INGREDIENT_NAMES.map(n => `<option value="${n}">`).join('')}
                 </datalist>
 
-                <div class="card">
-                    <h3>Estimación</h3>
-                    <div class="list-item"><span>Calorías</span><strong>${totals.calories} kcal</strong></div>
-                    <div class="list-item"><span>Proteína</span><span>${totals.protein} g</span></div>
-                    <div class="list-item"><span>Carbohidratos</span><span>${totals.carbs} g</span></div>
-                    <div class="list-item"><span>Grasas</span><span>${totals.fat} g</span></div>
-                    ${totals.unrecognized.length > 0 ? `
-                        <p class="hint">No reconocido, no cuenta en la estimación: ${totals.unrecognized.join(', ')}. Prueba con el nombre exacto sugerido al escribir.</p>
-                    ` : ''}
-                </div>
+                <div class="card" id="estimationCard">${estimationHtml()}</div>
 
                 <div class="field">
                     <label>Preparación (opcional, un paso por línea)</label>
-                    <textarea id="steps" rows="4" style="width:100%; font-size:15px; padding:10px 11px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:inherit;"></textarea>
+                    <textarea id="steps" rows="4" style="width:100%; font-size:15px; padding:10px 11px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:inherit;">${state.steps}</textarea>
                 </div>
             </div>
         `;
 
-        // preserve values across re-render
-        const nameInput = backdrop.querySelector('#recipeName');
-        nameInput.value = state.name;
-        nameInput.addEventListener('input', e => { state.name = e.target.value; });
-
-        const mealSelect = backdrop.querySelector('#mealType');
-        mealSelect.value = state.mealType;
-        mealSelect.addEventListener('change', e => { state.mealType = e.target.value; });
-
-        const stepsInput = backdrop.querySelector('#steps');
-        stepsInput.value = state.steps;
-        stepsInput.addEventListener('input', e => { state.steps = e.target.value; });
+        backdrop.querySelector('#recipeName').addEventListener('input', e => { state.name = e.target.value; });
+        backdrop.querySelector('#mealType').addEventListener('change', e => { state.mealType = e.target.value; });
+        backdrop.querySelector('#steps').addEventListener('input', e => { state.steps = e.target.value; });
 
         backdrop.querySelectorAll('[data-row]').forEach(rowEl => {
             const idx = Number(rowEl.dataset.row);
             rowEl.querySelector('[data-field="qty"]').addEventListener('input', e => {
                 rows[idx].qty = parseFloat(e.target.value) || 0;
-                render();
+                updateEstimate();
             });
             rowEl.querySelector('[data-field="unit"]').addEventListener('change', e => {
                 rows[idx].unit = e.target.value;
-                render();
+                updateEstimate();
             });
             rowEl.querySelector('[data-field="name"]').addEventListener('input', e => {
                 rows[idx].name = e.target.value;
-                render();
+                updateEstimate();
             });
         });
 
         backdrop.querySelectorAll('[data-action="remove-row"]').forEach(btn => {
             btn.addEventListener('click', () => {
                 rows.splice(Number(btn.dataset.idx), 1);
-                render();
+                renderShell();
             });
         });
 
         backdrop.querySelector('#addIngredientBtn').addEventListener('click', () => {
             rows.push({ qty: '', unit: 'g', name: '' });
-            render();
+            renderShell();
         });
 
         backdrop.querySelector('[data-action="cancel"]').addEventListener('click', () => backdrop.remove());
@@ -135,6 +137,5 @@ export function openRecipeForm(onSaved) {
         });
     }
 
-    const state = { name: '', mealType: 'Comida', steps: '' };
-    render();
+    renderShell();
 }
