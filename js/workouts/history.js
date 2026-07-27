@@ -76,7 +76,7 @@ function openWorkoutDetail(workout) {
         if (!confirm('¿Eliminar este entrenamiento? No se puede deshacer.')) return;
         Store.workouts = Store.workouts.filter(w => w.id !== workout.id);
         backdrop.remove();
-        renderHistory(document.getElementById('app'));
+        renderHistory(document.getElementById('workoutSubContent'));
     });
     document.body.appendChild(backdrop);
 }

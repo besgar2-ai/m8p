@@ -312,3 +312,29 @@ input:focus, select:focus {
 .day-block { margin-bottom: 14px; }
 .meal-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
 .meal-row .meta { color: var(--text-secondary); font-size: 12px; }
+
+.segmented {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 14px;
+}
+.segmented-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-radius: 9px;
+    padding: 8px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.segmented-btn.active {
+    background: var(--gradient);
+    color: white;
+}

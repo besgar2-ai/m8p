@@ -84,8 +84,7 @@ function startWorkout(template) {
     };
     Store.workouts = [...Store.workouts, workout];
     openActiveWorkout(workout.id, () => {
-        const root = document.getElementById('app');
-        renderRoutines(root);
+        renderRoutines(document.getElementById('workoutSubContent'));
     });
 }
 

@@ -1,20 +1,14 @@
 import { seedExercisesIfNeeded } from './workouts/exercises.js';
 import { renderToday } from './today/todayView.js';
-import { renderRoutines } from './workouts/routines.js';
-import { renderHistory } from './workouts/history.js';
-import { renderProgress } from './workouts/progress.js';
+import { renderWorkoutTab } from './workouts/entrenoView.js';
 import { renderWeight } from './weight/weightTracker.js';
 import { renderRecipes } from './recipes/planner.js';
-import { renderProgram } from './program/programView.js';
 
 const TABS = {
     today: { title: 'Hoy', render: renderToday },
-    routines: { title: 'Rutinas', render: renderRoutines },
-    history: { title: 'Historial', render: renderHistory },
-    progress: { title: 'Progreso', render: renderProgress },
+    workout: { title: 'Entreno', render: renderWorkoutTab },
     weight: { title: 'Peso', render: renderWeight },
     recipes: { title: 'Recetas', render: renderRecipes },
-    program: { title: 'Programa', render: renderProgram },
 };
 
 const app = document.getElementById('app');

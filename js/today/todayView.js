@@ -1,5 +1,6 @@
 import { Store } from '../storage.js';
 import { getRecipe } from '../recipes/recipeData.js';
+import { setWorkoutSubTab } from '../workouts/entrenoView.js';
 
 const DAY_LABELS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -67,8 +68,14 @@ function workoutCard() {
         `;
     }
 
-    card.querySelector('#startWorkoutBtn')?.addEventListener('click', () => switchTab('routines'));
-    card.querySelector('#goProgramBtn')?.addEventListener('click', () => switchTab('program'));
+    card.querySelector('#startWorkoutBtn')?.addEventListener('click', () => {
+        setWorkoutSubTab('routines');
+        switchTab('workout');
+    });
+    card.querySelector('#goProgramBtn')?.addEventListener('click', () => {
+        setWorkoutSubTab('program');
+        switchTab('workout');
+    });
     return card;
 }
 

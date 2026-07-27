@@ -92,7 +92,6 @@ function startProgramDay(day, weekIndex) {
     };
     Store.workouts = [...Store.workouts, workout];
     openActiveWorkout(workout.id, () => {
-        const root = document.getElementById('app');
-        renderProgram(root);
+        renderProgram(document.getElementById('workoutSubContent'));
     });
 }
