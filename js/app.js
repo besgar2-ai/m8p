@@ -1,4 +1,5 @@
 import { seedExercisesIfNeeded } from './workouts/exercises.js';
+import { renderToday } from './today/todayView.js';
 import { renderRoutines } from './workouts/routines.js';
 import { renderHistory } from './workouts/history.js';
 import { renderProgress } from './workouts/progress.js';
@@ -7,6 +8,7 @@ import { renderRecipes } from './recipes/planner.js';
 import { renderProgram } from './program/programView.js';
 
 const TABS = {
+    today: { title: 'Hoy', render: renderToday },
     routines: { title: 'Rutinas', render: renderRoutines },
     history: { title: 'Historial', render: renderHistory },
     progress: { title: 'Progreso', render: renderProgress },
@@ -34,4 +36,4 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 seedExercisesIfNeeded();
-navigate('routines');
+navigate('today');
