@@ -1,6 +1,8 @@
 // Todas las recetas son sin gluten. Macros aproximados por ración.
 // Ingredientes estructurados como {qty, unit, name, pantry?} para poder sumarlos
 // en la lista de la compra. pantry:true = básico de despensa, no se pide comprar.
+import { Store } from '../storage.js';
+
 function i(qty, unit, name) { return { qty, unit, name }; }
 function pantry(name) { return { qty: null, unit: '', name, pantry: true }; }
 
@@ -78,12 +80,28 @@ export const RECIPES = [
 
 export const MEAL_TYPES = ['Desayuno', 'Comida', 'Cena', 'Snack'];
 
+export function allRecipes() {
+    return [...RECIPES, ...Store.customRecipes];
+}
+
 export function recipesByType(type) {
-    return RECIPES.filter(r => r.mealType === type);
+    return allRecipes().filter(r => r.mealType === type);
 }
 
 export function getRecipe(id) {
-    return RECIPES.find(r => r.id === id);
+    return allRecipes().find(r => r.id === id);
+}
+
+export function addCustomRecipe(recipe) {
+    Store.customRecipes = [...Store.customRecipes, recipe];
+}
+
+export function deleteCustomRecipe(id) {
+    Store.customRecipes = Store.customRecipes.filter(r => r.id !== id);
+    const plan = Store.weeklyPlan;
+    if (plan?.days?.some(day => day.meals.some(m => m.recipeId === id))) {
+        Store.weeklyPlan = null;
+    }
 }
 
 export function formatIngredient(ing) {

@@ -1,7 +1,8 @@
 import { Store, uid } from '../storage.js';
-import { RECIPES, recipesByType, getRecipe, formatIngredient } from './recipeData.js';
+import { recipesByType, getRecipe, formatIngredient, deleteCustomRecipe } from './recipeData.js';
 import { calculateTargets, ACTIVITY_LABELS } from './nutrition.js';
 import { buildShoppingList, formatQty } from './shoppingList.js';
+import { openRecipeForm } from './customRecipeForm.js';
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -67,6 +68,8 @@ export function renderRecipes(root) {
     shoppingBtn.style.marginBottom = '14px';
     shoppingBtn.addEventListener('click', () => openShoppingList(plan));
     wrap.appendChild(shoppingBtn);
+
+    wrap.appendChild(customRecipesSection(root));
 
     plan.days.forEach((day, idx) => {
         const dayCard = document.createElement('div');
@@ -204,6 +207,55 @@ function openShoppingList(plan) {
         if (e.target === backdrop || e.target.dataset.action === 'close') backdrop.remove();
     });
     render();
+}
+
+function customRecipesSection(root) {
+    const section = document.createElement('div');
+    section.className = 'card';
+
+    function render() {
+        const custom = Store.customRecipes;
+        section.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Tus recetas</h3>
+                <button class="link-btn" id="createRecipeBtn">+ Crear receta</button>
+            </div>
+            ${custom.length === 0
+                ? '<p class="hint">Crea tus propias recetas indicando los ingredientes: estimamos las calorías automáticamente y podrán aparecer en tu plan semanal.</p>'
+                : custom.map(r => `
+                    <div class="list-item" data-recipe="${r.id}" style="cursor:pointer">
+                        <span>${r.mealType}: ${r.name}</span>
+                        <span style="display:flex; align-items:center; gap:10px;">
+                            <span class="meta" style="color:var(--text-secondary); font-size:12px">${r.calories} kcal</span>
+                            <button class="link-btn" data-delete="${r.id}" style="color:var(--danger)">🗑️</button>
+                        </span>
+                    </div>
+                `).join('')
+            }
+        `;
+
+        section.querySelector('#createRecipeBtn').addEventListener('click', () => {
+            openRecipeForm(() => {
+                render();
+            });
+        });
+        section.querySelectorAll('[data-recipe]').forEach(el => {
+            el.addEventListener('click', e => {
+                if (e.target.closest('[data-delete]')) return;
+                openRecipeDetail(getRecipe(el.dataset.recipe));
+            });
+        });
+        section.querySelectorAll('[data-delete]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!confirm('¿Eliminar esta receta?')) return;
+                deleteCustomRecipe(btn.dataset.delete);
+                renderRecipes(root);
+            });
+        });
+    }
+
+    render();
+    return section;
 }
 
 function profileForm(root) {

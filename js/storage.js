@@ -37,4 +37,7 @@ export const Store = {
 
     get weeklyPlan() { return load('weeklyPlan', null); },
     set weeklyPlan(v) { save('weeklyPlan', v); },
+
+    get customRecipes() { return load('customRecipes', []); },
+    set customRecipes(v) { save('customRecipes', v); },
 };
