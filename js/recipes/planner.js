@@ -1,5 +1,5 @@
 import { Store, uid } from '../storage.js';
-import { recipesByType, getRecipe, formatIngredient, deleteCustomRecipe } from './recipeData.js';
+import { recipesByType, getRecipe, formatIngredient, deleteCustomRecipe, MEAL_TYPES } from './recipeData.js';
 import { calculateTargets, ACTIVITY_LABELS } from './nutrition.js';
 import { buildShoppingList, formatQty } from './shoppingList.js';
 import { openRecipeForm } from './customRecipeForm.js';
@@ -48,7 +48,7 @@ export function renderRecipes(root) {
 
     let plan = Store.weeklyPlan;
     if (!plan || plan.targetCalories !== targets.targetCalories) {
-        plan = generateWeeklyPlan(targets.targetCalories);
+        plan = generateWeeklyPlan(targets.targetCalories, plan?.pinnedIds ?? []);
         Store.weeklyPlan = plan;
     }
 
@@ -57,10 +57,24 @@ export function renderRecipes(root) {
     regenBtn.textContent = '🔀 Regenerar plan semanal';
     regenBtn.style.marginBottom = '14px';
     regenBtn.addEventListener('click', () => {
-        Store.weeklyPlan = generateWeeklyPlan(targets.targetCalories);
+        Store.weeklyPlan = generateWeeklyPlan(targets.targetCalories, plan.pinnedIds ?? []);
         renderRecipes(root);
     });
     wrap.appendChild(regenBtn);
+
+    if (Store.customRecipes.length > 0) {
+        const pinBtn = document.createElement('button');
+        pinBtn.className = 'btn secondary block';
+        pinBtn.textContent = '🎯 Elegir mis recetas para esta semana';
+        pinBtn.style.marginBottom = '14px';
+        pinBtn.addEventListener('click', () => {
+            openPinnedRecipesPicker(plan.pinnedIds ?? [], selectedIds => {
+                Store.weeklyPlan = generateWeeklyPlan(targets.targetCalories, selectedIds);
+                renderRecipes(root);
+            });
+        });
+        wrap.appendChild(pinBtn);
+    }
 
     const shoppingBtn = document.createElement('button');
     shoppingBtn.className = 'btn block';
@@ -71,33 +85,136 @@ export function renderRecipes(root) {
 
     wrap.appendChild(customRecipesSection(root));
 
-    plan.days.forEach((day, idx) => {
+    plan.days.forEach((day, dayIdx) => {
         const dayCard = document.createElement('div');
         dayCard.className = 'card day-block';
         const dayTotal = day.meals.reduce((sum, m) => sum + getRecipe(m.recipeId).calories, 0);
         dayCard.innerHTML = `
             <div style="display:flex; justify-content:space-between;">
-                <h3>${DAYS[idx]}</h3>
+                <h3>${DAYS[dayIdx]}</h3>
                 <span class="badge">${dayTotal} kcal</span>
             </div>
-            ${day.meals.map(m => {
+            ${day.meals.map((m, mealIdx) => {
                 const r = getRecipe(m.recipeId);
                 return `
                     <div class="meal-row" data-recipe="${r.id}" style="cursor:pointer">
                         <span>${r.mealType}: ${r.name}</span>
-                        <span class="meta">${r.calories} kcal</span>
+                        <span style="display:flex; align-items:center; gap:8px;">
+                            <span class="meta">${r.calories} kcal</span>
+                            <button class="link-btn" data-edit-meal="${mealIdx}" style="padding:2px">✏️</button>
+                        </span>
                     </div>
                 `;
             }).join('')}
         `;
         dayCard.querySelectorAll('[data-recipe]').forEach(el => {
-            el.addEventListener('click', () => openRecipeDetail(getRecipe(el.dataset.recipe)));
+            el.addEventListener('click', e => {
+                if (e.target.closest('[data-edit-meal]')) return;
+                openRecipeDetail(getRecipe(el.dataset.recipe));
+            });
+        });
+        dayCard.querySelectorAll('[data-edit-meal]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mealIdx = Number(btn.dataset.editMeal);
+                const mealType = day.meals[mealIdx].mealType;
+                openMealSwapPicker(mealType, day.meals[mealIdx].recipeId, newRecipeId => {
+                    const currentPlan = Store.weeklyPlan;
+                    currentPlan.days[dayIdx].meals[mealIdx].recipeId = newRecipeId;
+                    Store.weeklyPlan = currentPlan;
+                    renderRecipes(root);
+                });
+            });
         });
         wrap.appendChild(dayCard);
     });
 }
 
-function generateWeeklyPlan(targetCalories) {
+function openMealSwapPicker(mealType, currentRecipeId, onSelect) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    const options = recipesByType(mealType);
+    backdrop.innerHTML = `
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <button class="link-btn" data-action="cancel">Cancelar</button>
+                <h2>Cambiar ${mealType.toLowerCase()}</h2>
+                <span></span>
+            </div>
+            <div class="card" style="padding:0 14px">
+                ${options.map(r => `
+                    <div class="list-item" data-pick="${r.id}" style="cursor:pointer">
+                        <span>${r.name}${r.id === currentRecipeId ? ' (actual)' : ''}${r.custom ? ' · tuya' : ''}</span>
+                        <span class="meta" style="color:var(--text-secondary); font-size:12px">${r.calories} kcal</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    backdrop.addEventListener('click', e => {
+        if (e.target === backdrop || e.target.dataset.action === 'cancel') { backdrop.remove(); return; }
+        const pick = e.target.closest('[data-pick]');
+        if (pick) {
+            onSelect(pick.dataset.pick);
+            backdrop.remove();
+        }
+    });
+    document.body.appendChild(backdrop);
+}
+
+function openPinnedRecipesPicker(currentPinnedIds, onConfirm) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    const selected = new Set(currentPinnedIds);
+    const custom = Store.customRecipes;
+
+    function render() {
+        backdrop.innerHTML = `
+            <div class="modal-sheet">
+                <div class="modal-header">
+                    <button class="link-btn" data-action="cancel">Cancelar</button>
+                    <h2>Tus recetas esta semana</h2>
+                    <button class="link-btn" data-action="confirm">Generar</button>
+                </div>
+                <p class="hint">Marca las recetas que quieres asegurar en el plan de esta semana. El resto de comidas se rellenan automáticamente.</p>
+                ${MEAL_TYPES.map(type => {
+                    const items = custom.filter(r => r.mealType === type);
+                    if (items.length === 0) return '';
+                    return `
+                        <h3>${type}</h3>
+                        <div class="card" style="padding:0 14px">
+                            ${items.map(r => `
+                                <div class="list-item" data-toggle="${r.id}" style="cursor:pointer">
+                                    <span>${r.name}</span>
+                                    <span class="check-btn ${selected.has(r.id) ? 'done' : ''}" style="width:26px;height:26px;font-size:13px">${selected.has(r.id) ? '✓' : ''}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        backdrop.querySelectorAll('[data-toggle]').forEach(row => {
+            row.addEventListener('click', () => {
+                const id = row.dataset.toggle;
+                if (selected.has(id)) selected.delete(id); else selected.add(id);
+                render();
+            });
+        });
+        backdrop.querySelector('[data-action="cancel"]').addEventListener('click', () => backdrop.remove());
+        backdrop.querySelector('[data-action="confirm"]').addEventListener('click', () => {
+            backdrop.remove();
+            onConfirm([...selected]);
+        });
+    }
+
+    backdrop.addEventListener('click', e => {
+        if (e.target === backdrop) backdrop.remove();
+    });
+    document.body.appendChild(backdrop);
+    render();
+}
+
+function generateWeeklyPlan(targetCalories, pinnedIds = []) {
     const byType = {
         Desayuno: recipesByType('Desayuno'),
         Comida: recipesByType('Comida'),
@@ -105,16 +222,28 @@ function generateWeeklyPlan(targetCalories) {
         Snack: recipesByType('Snack'),
     };
 
-    const days = DAYS.map(() => {
+    // Reparte las recetas fijadas por el usuario entre días distintos (una por día,
+    // como mucho una vez cada una) antes de rellenar el resto al azar.
+    const pinnedByType = {};
+    pinnedIds.forEach(id => {
+        const r = getRecipe(id);
+        if (r) (pinnedByType[r.mealType] ??= []).push(id);
+    });
+    const dayAssignment = {};
+    Object.entries(pinnedByType).forEach(([mealType, ids]) => {
+        const dayIndices = shuffle([0, 1, 2, 3, 4, 5, 6]).slice(0, ids.length);
+        dayAssignment[mealType] = {};
+        dayIndices.forEach((dayIdx, i) => { dayAssignment[mealType][dayIdx] = ids[i]; });
+    });
+
+    const days = DAYS.map((_, dayIdx) => {
         let best = null;
         let bestDiff = Infinity;
         for (let attempt = 0; attempt < 20; attempt++) {
-            const meals = [
-                { mealType: 'Desayuno', recipeId: pickRandom(byType.Desayuno).id },
-                { mealType: 'Comida', recipeId: pickRandom(byType.Comida).id },
-                { mealType: 'Cena', recipeId: pickRandom(byType.Cena).id },
-                { mealType: 'Snack', recipeId: pickRandom(byType.Snack).id },
-            ];
+            const meals = ['Desayuno', 'Comida', 'Cena', 'Snack'].map(mealType => {
+                const pinnedId = dayAssignment[mealType]?.[dayIdx];
+                return { mealType, recipeId: pinnedId ?? pickRandom(byType[mealType]).id };
+            });
             const total = meals.reduce((sum, m) => sum + getRecipe(m.recipeId).calories, 0);
             const diff = Math.abs(total - targetCalories);
             if (diff < bestDiff) { bestDiff = diff; best = meals; }
@@ -122,11 +251,20 @@ function generateWeeklyPlan(targetCalories) {
         return { meals: best };
     });
 
-    return { id: uid(), targetCalories, days, createdAt: Date.now() };
+    return { id: uid(), targetCalories, days, pinnedIds, createdAt: Date.now() };
 }
 
 function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
 }
 
 function openRecipeDetail(recipe) {
