@@ -1,10 +1,12 @@
 import { Store, uid } from '../storage.js';
 import { drawLineChart } from '../charts.js';
 import { parseFitdaysCsv } from './csvImport.js';
+import { compressImageFile } from '../recipes/imageUtils.js';
 
 export function renderWeight(root) {
     const entries = [...Store.weightEntries].sort((a, b) => a.date - b.date);
     const profile = Store.profile ?? {};
+    let pendingPhoto = null;
 
     const wrap = document.createElement('div');
 
@@ -41,6 +43,30 @@ export function renderWeight(root) {
         });
     }
 
+    const photoEntries = entries.filter(e => e.photo);
+    if (photoEntries.length > 0) {
+        const galleryCard = document.createElement('div');
+        galleryCard.className = 'card';
+        galleryCard.innerHTML = `
+            <h3>Fotos de progreso</h3>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+                ${photoEntries.map(e => `
+                    <div data-photo="${e.id}" style="cursor:pointer">
+                        <img src="${e.photo}" alt="" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; display:block;" />
+                        <p class="hint" style="margin:4px 0 0; text-align:center; font-size:11px;">${new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</p>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        wrap.appendChild(galleryCard);
+        galleryCard.querySelectorAll('[data-photo]').forEach(el => {
+            el.addEventListener('click', () => {
+                const entry = entries.find(e => e.id === el.dataset.photo);
+                openPhotoDetail(entry);
+            });
+        });
+    }
+
     const addCard = document.createElement('div');
     addCard.className = 'card';
     addCard.innerHTML = `
@@ -57,16 +83,48 @@ export function renderWeight(root) {
             <label>% Grasa corporal (opcional)</label>
             <input type="number" step="0.1" id="bodyFatValue" placeholder="ej. 24.5" />
         </div>
+        <div class="field">
+            <label>Foto de progreso (opcional)</label>
+            <div id="weightPhotoSection"></div>
+        </div>
         <button class="btn block" id="saveWeightBtn">Guardar</button>
     `;
     wrap.appendChild(addCard);
+
+    function renderPhotoSection() {
+        const section = addCard.querySelector('#weightPhotoSection');
+        if (pendingPhoto) {
+            section.innerHTML = `
+                <img src="${pendingPhoto}" alt="" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; display:block; margin-bottom:8px;" />
+                <button class="link-btn" id="removeWeightPhotoBtn" style="color:var(--danger)">Quitar foto</button>
+            `;
+            section.querySelector('#removeWeightPhotoBtn').addEventListener('click', () => {
+                pendingPhoto = null;
+                renderPhotoSection();
+            });
+        } else {
+            section.innerHTML = `<input type="file" accept="image/*" id="weightPhotoInput" />`;
+            section.querySelector('#weightPhotoInput').addEventListener('change', async e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                    pendingPhoto = await compressImageFile(file);
+                    renderPhotoSection();
+                } catch {
+                    alert('No se pudo procesar la imagen.');
+                }
+            });
+        }
+    }
+    renderPhotoSection();
+
     addCard.querySelector('#saveWeightBtn').addEventListener('click', () => {
         const dateStr = addCard.querySelector('#weightDate').value;
         const weight = parseFloat(addCard.querySelector('#weightValue').value);
         const bodyFat = parseFloat(addCard.querySelector('#bodyFatValue').value);
         if (!dateStr || !weight) { alert('Introduce al menos fecha y peso.'); return; }
         const date = new Date(dateStr).getTime();
-        const newEntry = { id: uid(), date, weight, bodyFatPct: isNaN(bodyFat) ? null : bodyFat };
+        const newEntry = { id: uid(), date, weight, bodyFatPct: isNaN(bodyFat) ? null : bodyFat, photo: pendingPhoto };
         const withoutSameDay = Store.weightEntries.filter(e => new Date(e.date).toDateString() !== new Date(date).toDateString());
         Store.weightEntries = [...withoutSameDay, newEntry];
         renderWeight(root);
@@ -109,15 +167,47 @@ export function renderWeight(root) {
         historyCard.innerHTML = `
             <h3>Historial</h3>
             ${[...entries].reverse().map(e => `
-                <div class="list-item">
-                    <span>${new Date(e.date).toLocaleDateString('es-ES', { dateStyle: 'medium' })}</span>
+                <div class="list-item" ${e.photo ? `data-photo="${e.id}" style="cursor:pointer"` : ''}>
+                    <span style="display:flex; align-items:center; gap:8px;">
+                        ${e.photo ? `<img src="${e.photo}" alt="" style="width:32px; height:32px; object-fit:cover; border-radius:8px;" />` : ''}
+                        ${new Date(e.date).toLocaleDateString('es-ES', { dateStyle: 'medium' })}
+                    </span>
                     <span>${e.weight} kg ${e.bodyFatPct ? `· ${e.bodyFatPct}% grasa` : ''}</span>
                 </div>
             `).join('')}
         `;
         wrap.appendChild(historyCard);
+        historyCard.querySelectorAll('[data-photo]').forEach(el => {
+            el.addEventListener('click', () => {
+                const entry = entries.find(e => e.id === el.dataset.photo);
+                openPhotoDetail(entry);
+            });
+        });
     }
 
     root.innerHTML = '';
     root.appendChild(wrap);
+}
+
+function openPhotoDetail(entry) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <span></span>
+                <h2>${new Date(entry.date).toLocaleDateString('es-ES', { dateStyle: 'medium' })}</h2>
+                <button class="link-btn" data-action="close">Cerrar</button>
+            </div>
+            <img src="${entry.photo}" alt="" style="width:100%; border-radius:14px; display:block; margin-bottom:12px;" />
+            <div class="card">
+                <div class="list-item"><span>Peso</span><strong>${entry.weight} kg</strong></div>
+                ${entry.bodyFatPct ? `<div class="list-item"><span>Grasa corporal</span><span>${entry.bodyFatPct}%</span></div>` : ''}
+            </div>
+        </div>
+    `;
+    backdrop.addEventListener('click', e => {
+        if (e.target === backdrop || e.target.dataset.action === 'close') backdrop.remove();
+    });
+    document.body.appendChild(backdrop);
 }

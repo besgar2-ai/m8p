@@ -41,3 +41,27 @@ export const Store = {
     get customRecipes() { return load('customRecipes', []); },
     set customRecipes(v) { save('customRecipes', v); },
 };
+
+export function exportAllData() {
+    const data = {};
+    Object.keys(localStorage)
+        .filter(k => k.startsWith(PREFIX))
+        .forEach(k => {
+            try {
+                data[k.slice(PREFIX.length)] = JSON.parse(localStorage.getItem(k));
+            } catch {
+                // ignora entradas corruptas
+            }
+        });
+    return JSON.stringify({ app: 'M8P', exportedAt: new Date().toISOString(), data }, null, 2);
+}
+
+export function importAllData(jsonString) {
+    const parsed = JSON.parse(jsonString);
+    if (!parsed || typeof parsed.data !== 'object' || parsed.data === null) {
+        throw new Error('Formato de copia de seguridad no válido.');
+    }
+    Object.entries(parsed.data).forEach(([key, value]) => {
+        localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    });
+}

@@ -31,3 +31,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 seedExercisesIfNeeded();
 navigate('today');
+
+// Pide almacenamiento persistente para reducir el riesgo de que iOS/Safari
+// borre los datos locales de la app bajo presión de memoria o espacio.
+if (navigator.storage?.persist) {
+    navigator.storage.persist().catch(() => {});
+}
